@@ -44,6 +44,8 @@ export default function Index() {
   const [chatHistory, setChatHistory] = useState<Chat[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [voiceType, setVoiceType] = useState<'male' | 'female' | 'child'>('female');
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState(true);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -51,12 +53,60 @@ export default function Index() {
       setTheme(savedTheme);
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
     }
+
+    const savedVoiceType = localStorage.getItem('voiceType') as 'male' | 'female' | 'child' | null;
+    if (savedVoiceType) {
+      setVoiceType(savedVoiceType);
+    }
+
+    const savedAutoSpeak = localStorage.getItem('autoSpeak');
+    if (savedAutoSpeak !== null) {
+      setAutoSpeak(savedAutoSpeak === 'true');
+    }
   }, []);
 
   const handleThemeChange = (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
+
+  const handleVoiceTypeChange = (newVoiceType: 'male' | 'female' | 'child') => {
+    setVoiceType(newVoiceType);
+    localStorage.setItem('voiceType', newVoiceType);
+  };
+
+  const speakText = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ru-RU';
+
+      if (voiceType === 'male') {
+        utterance.pitch = 0.8;
+        utterance.rate = 0.9;
+      } else if (voiceType === 'female') {
+        utterance.pitch = 1.2;
+        utterance.rate = 1.0;
+      } else if (voiceType === 'child') {
+        utterance.pitch = 1.5;
+        utterance.rate = 1.1;
+      }
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const stopSpeaking = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
   };
 
   const handleAuth = (e: React.FormEvent) => {
@@ -92,6 +142,10 @@ export default function Index() {
 
     if (!chatHistory.find((c) => c.id === updatedChat.id)) {
       setChatHistory([updatedChat, ...chatHistory]);
+    }
+
+    if (autoSpeak) {
+      setTimeout(() => speakText(aiResponse.text), 300);
     }
   };
 
@@ -266,7 +320,19 @@ export default function Index() {
                             : 'glass-effect border-primary/20'
                         }`}
                       >
-                        <p className="text-sm">{message.text}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm flex-1">{message.text}</p>
+                          {message.sender === 'ai' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 shrink-0"
+                              onClick={() => speakText(message.text)}
+                            >
+                              <Icon name="Volume2" size={16} />
+                            </Button>
+                          )}
+                        </div>
                       </Card>
                     </div>
                   ))}
@@ -275,23 +341,39 @@ export default function Index() {
             )}
 
             <div className="border-t border-border p-6">
-              <div className="max-w-4xl mx-auto flex gap-4">
-                <Input
-                  placeholder="Напишите сообщение..."
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  className="flex-1 bg-background/50 border-primary/20"
-                />
-                <Button onClick={handleSendMessage} className="gradient-primary hover:opacity-90">
-                  <Icon name="Send" size={20} />
-                </Button>
-                <Button variant="outline" className="border-primary/20">
-                  <Icon name="Paperclip" size={20} />
-                </Button>
-                <Button variant="outline" className="border-primary/20">
-                  <Icon name="Smile" size={20} />
-                </Button>
+              <div className="max-w-4xl mx-auto space-y-3">
+                {isSpeaking && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Icon name="Volume2" size={16} className="animate-pulse" />
+                    <span>Озвучивание...</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={stopSpeaking}
+                      className="h-6 text-xs"
+                    >
+                      Остановить
+                    </Button>
+                  </div>
+                )}
+                <div className="flex gap-4">
+                  <Input
+                    placeholder="Напишите сообщение..."
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    className="flex-1 bg-background/50 border-primary/20"
+                  />
+                  <Button onClick={handleSendMessage} className="gradient-primary hover:opacity-90">
+                    <Icon name="Send" size={20} />
+                  </Button>
+                  <Button variant="outline" className="border-primary/20">
+                    <Icon name="Paperclip" size={20} />
+                  </Button>
+                  <Button variant="outline" className="border-primary/20">
+                    <Icon name="Smile" size={20} />
+                  </Button>
+                </div>
               </div>
             </div>
           </>
@@ -443,7 +525,7 @@ export default function Index() {
                       <Button
                         variant={voiceType === 'male' ? 'default' : 'outline'}
                         className={voiceType === 'male' ? 'gradient-secondary' : 'border-primary/20'}
-                        onClick={() => setVoiceType('male')}
+                        onClick={() => handleVoiceTypeChange('male')}
                       >
                         <Icon name="User" className="mr-2" size={18} />
                         Мужской
@@ -451,7 +533,7 @@ export default function Index() {
                       <Button
                         variant={voiceType === 'female' ? 'default' : 'outline'}
                         className={voiceType === 'female' ? 'gradient-secondary' : 'border-primary/20'}
-                        onClick={() => setVoiceType('female')}
+                        onClick={() => handleVoiceTypeChange('female')}
                       >
                         <Icon name="UserRound" className="mr-2" size={18} />
                         Женский
@@ -459,14 +541,48 @@ export default function Index() {
                       <Button
                         variant={voiceType === 'child' ? 'default' : 'outline'}
                         className={voiceType === 'child' ? 'gradient-secondary' : 'border-primary/20'}
-                        onClick={() => setVoiceType('child')}
+                        onClick={() => handleVoiceTypeChange('child')}
                       >
                         <Icon name="Baby" className="mr-2" size={18} />
                         Детский
                       </Button>
                     </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-background/30">
+                      <span className="text-xs text-muted-foreground">
+                        Выбранный голос: {voiceType === 'male' ? 'Мужской' : voiceType === 'female' ? 'Женский' : 'Детский'}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => speakText('Привет! Я Kelan, ваш AI-ассистент.')}
+                        className="h-8"
+                      >
+                        <Icon name="Play" className="mr-2" size={14} />
+                        Тест
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium flex items-center gap-2">
+                        <Icon name="Volume" size={18} />
+                        Автоозвучка ответов
+                      </label>
+                      <Button
+                        size="sm"
+                        variant={autoSpeak ? 'default' : 'outline'}
+                        className={autoSpeak ? 'gradient-accent' : 'border-primary/20'}
+                        onClick={() => {
+                          setAutoSpeak(!autoSpeak);
+                          localStorage.setItem('autoSpeak', (!autoSpeak).toString());
+                        }}
+                      >
+                        {autoSpeak ? 'Вкл' : 'Выкл'}
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Выбранный голос: {voiceType === 'male' ? 'Мужской' : voiceType === 'female' ? 'Женский' : 'Детский'}
+                      {autoSpeak ? 'Ответы AI будут автоматически озвучиваться' : 'Озвучка по кнопке в сообщении'}
                     </p>
                   </div>
                 </div>
