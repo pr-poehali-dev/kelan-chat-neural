@@ -1,14 +1,396 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import Icon from '@/components/ui/icon';
 
-const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 color-black text-black">Добро пожаловать!</h1>
-        <p className="text-xl text-gray-600">тут будет отображаться ваш проект</p>
+interface Message {
+  id: string;
+  text: string;
+  sender: 'user' | 'ai';
+  timestamp: Date;
+}
+
+interface Chat {
+  id: string;
+  title: string;
+  messages: Message[];
+  lastMessage: Date;
+}
+
+const EXAMPLE_PROMPTS = [
+  { icon: 'Calculator', text: 'Реши пример: 2x + 5 = 15' },
+  { icon: 'BookOpen', text: 'Расскажи сказку про космонавта' },
+  { icon: 'FileText', text: 'Напиши диплом по IT-безопасности' },
+  { icon: 'ScrollText', text: 'Напиши реферат по истории' },
+  { icon: 'Video', text: 'Создай видео с природой' },
+  { icon: 'Sparkles', text: 'Придумай название для стартапа' },
+];
+
+export default function Index() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
+  const [currentTab, setCurrentTab] = useState('chat');
+  const [currentChat, setCurrentChat] = useState<Chat>({
+    id: '1',
+    title: 'Новый чат',
+    messages: [],
+    lastMessage: new Date(),
+  });
+  const [inputMessage, setInputMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<Chat[]>([]);
+
+  const handleAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthenticated(true);
+  };
+
+  const handleSendMessage = () => {
+    if (!inputMessage.trim()) return;
+
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      text: inputMessage,
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    const aiResponse: Message = {
+      id: (Date.now() + 1).toString(),
+      text: 'Привет! Я Kelan, ваш AI-ассистент. Как я могу вам помочь?',
+      sender: 'ai',
+      timestamp: new Date(),
+    };
+
+    const updatedChat = {
+      ...currentChat,
+      messages: [...currentChat.messages, newMessage, aiResponse],
+      lastMessage: new Date(),
+    };
+
+    setCurrentChat(updatedChat);
+    setInputMessage('');
+
+    if (!chatHistory.find((c) => c.id === updatedChat.id)) {
+      setChatHistory([updatedChat, ...chatHistory]);
+    }
+  };
+
+  const handlePromptClick = (promptText: string) => {
+    setInputMessage(promptText);
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 gradient-secondary opacity-50 blur-3xl"></div>
+        <div className="absolute top-20 left-20 w-72 h-72 gradient-primary opacity-30 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-20 w-96 h-96 gradient-accent opacity-20 rounded-full blur-3xl animate-pulse"></div>
+
+        <Card className="w-full max-w-md p-8 glass-effect border-primary/20 relative z-10 animate-scale-in">
+          <div className="text-center mb-8">
+            <div className="inline-block gradient-primary text-transparent bg-clip-text mb-2">
+              <h1 className="text-5xl font-bold mb-2">Kelan</h1>
+            </div>
+            <p className="text-muted-foreground">Твой AI-ассистент нового поколения</p>
+          </div>
+
+          <Tabs value={isLogin ? 'login' : 'register'} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="login" onClick={() => setIsLogin(true)}>
+                Вход
+              </TabsTrigger>
+              <TabsTrigger value="register" onClick={() => setIsLogin(false)}>
+                Регистрация
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value={isLogin ? 'login' : 'register'}>
+              <form onSubmit={handleAuth} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    className="bg-background/50 border-primary/20"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Пароль"
+                    className="bg-background/50 border-primary/20"
+                    required
+                  />
+                </div>
+                {!isLogin && (
+                  <div className="space-y-2">
+                    <Input
+                      type="password"
+                      placeholder="Повторите пароль"
+                      className="bg-background/50 border-primary/20"
+                      required
+                    />
+                  </div>
+                )}
+                <Button type="submit" className="w-full gradient-primary hover:opacity-90 transition-opacity">
+                  {isLogin ? 'Войти' : 'Зарегистрироваться'}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </Card>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex">
+      <aside className="w-72 border-r border-border glass-effect flex flex-col animate-slide-in">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-2xl font-bold gradient-primary text-transparent bg-clip-text">Kelan</h2>
+        </div>
+
+        <nav className="flex-1 p-4">
+          <div className="space-y-2">
+            <Button
+              variant={currentTab === 'chat' ? 'default' : 'ghost'}
+              className="w-full justify-start"
+              onClick={() => setCurrentTab('chat')}
+            >
+              <Icon name="MessageSquare" className="mr-2" size={20} />
+              Чат
+            </Button>
+            <Button
+              variant={currentTab === 'video' ? 'default' : 'ghost'}
+              className="w-full justify-start"
+              onClick={() => setCurrentTab('video')}
+            >
+              <Icon name="Video" className="mr-2" size={20} />
+              Генерация видео
+            </Button>
+            <Button
+              variant={currentTab === 'history' ? 'default' : 'ghost'}
+              className="w-full justify-start"
+              onClick={() => setCurrentTab('history')}
+            >
+              <Icon name="History" className="mr-2" size={20} />
+              История
+            </Button>
+            <Button
+              variant={currentTab === 'profile' ? 'default' : 'ghost'}
+              className="w-full justify-start"
+              onClick={() => setCurrentTab('profile')}
+            >
+              <Icon name="User" className="mr-2" size={20} />
+              Профиль
+            </Button>
+          </div>
+        </nav>
+
+        <div className="p-4 border-t border-border">
+          <Button variant="outline" className="w-full" onClick={() => setIsAuthenticated(false)}>
+            <Icon name="LogOut" className="mr-2" size={20} />
+            Выйти
+          </Button>
+        </div>
+      </aside>
+
+      <main className="flex-1 flex flex-col">
+        {currentTab === 'chat' && (
+          <>
+            {currentChat.messages.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 animate-fade-in">
+                <div className="max-w-4xl w-full space-y-8">
+                  <div className="text-center space-y-4">
+                    <h1 className="text-6xl font-bold gradient-primary text-transparent bg-clip-text">
+                      Привет! Я Kelan
+                    </h1>
+                    <p className="text-xl text-muted-foreground">
+                      Твой универсальный AI-ассистент для творчества и работы
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {EXAMPLE_PROMPTS.map((prompt, index) => (
+                      <Card
+                        key={index}
+                        className="p-6 glass-effect border-primary/20 cursor-pointer hover:border-primary/50 transition-all hover:scale-105 group"
+                        onClick={() => handlePromptClick(prompt.text)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Icon name={prompt.icon as any} size={20} className="text-white" />
+                          </div>
+                          <p className="text-sm flex-1">{prompt.text}</p>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <ScrollArea className="flex-1 p-6">
+                <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+                  {currentChat.messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex gap-4 ${message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                    >
+                      <Avatar className={message.sender === 'ai' ? 'gradient-primary' : 'bg-muted'}>
+                        <AvatarFallback>{message.sender === 'ai' ? 'K' : 'Я'}</AvatarFallback>
+                      </Avatar>
+                      <Card
+                        className={`p-4 max-w-[70%] ${
+                          message.sender === 'user'
+                            ? 'gradient-primary text-white'
+                            : 'glass-effect border-primary/20'
+                        }`}
+                      >
+                        <p className="text-sm">{message.text}</p>
+                      </Card>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+
+            <div className="border-t border-border p-6">
+              <div className="max-w-4xl mx-auto flex gap-4">
+                <Input
+                  placeholder="Напишите сообщение..."
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  className="flex-1 bg-background/50 border-primary/20"
+                />
+                <Button onClick={handleSendMessage} className="gradient-primary hover:opacity-90">
+                  <Icon name="Send" size={20} />
+                </Button>
+                <Button variant="outline" className="border-primary/20">
+                  <Icon name="Paperclip" size={20} />
+                </Button>
+                <Button variant="outline" className="border-primary/20">
+                  <Icon name="Smile" size={20} />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {currentTab === 'video' && (
+          <div className="flex-1 flex items-center justify-center p-8 animate-fade-in">
+            <div className="max-w-2xl w-full space-y-6">
+              <div className="text-center space-y-2">
+                <div className="w-20 h-20 rounded-2xl gradient-accent mx-auto flex items-center justify-center mb-4">
+                  <Icon name="Video" size={40} className="text-white" />
+                </div>
+                <h2 className="text-3xl font-bold">Генерация видео</h2>
+                <p className="text-muted-foreground">Опишите видео, которое хотите создать</p>
+              </div>
+
+              <Card className="p-6 glass-effect border-primary/20">
+                <div className="space-y-4">
+                  <Input
+                    placeholder="Например: Видео рассвета в горах..."
+                    className="bg-background/50 border-primary/20"
+                  />
+                  <Button className="w-full gradient-accent hover:opacity-90">
+                    <Icon name="Sparkles" className="mr-2" size={20} />
+                    Создать видео
+                  </Button>
+                </div>
+              </Card>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="p-4 glass-effect border-primary/20">
+                  <div className="aspect-video bg-muted rounded-lg mb-2"></div>
+                  <p className="text-xs text-muted-foreground">Пример 1: Природа</p>
+                </Card>
+                <Card className="p-4 glass-effect border-primary/20">
+                  <div className="aspect-video bg-muted rounded-lg mb-2"></div>
+                  <p className="text-xs text-muted-foreground">Пример 2: Город</p>
+                </Card>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentTab === 'history' && (
+          <div className="flex-1 p-8 animate-fade-in">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <h2 className="text-3xl font-bold">История чатов</h2>
+              {chatHistory.length === 0 ? (
+                <Card className="p-12 glass-effect border-primary/20 text-center">
+                  <Icon name="MessageSquare" size={48} className="mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">История пуста. Начните новый чат!</p>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {chatHistory.map((chat) => (
+                    <Card
+                      key={chat.id}
+                      className="p-6 glass-effect border-primary/20 cursor-pointer hover:border-primary/50 transition-all hover:scale-[1.02]"
+                      onClick={() => {
+                        setCurrentChat(chat);
+                        setCurrentTab('chat');
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold">{chat.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {chat.messages.length} сообщений
+                          </p>
+                        </div>
+                        <Icon name="ChevronRight" size={20} className="text-muted-foreground" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTab === 'profile' && (
+          <div className="flex-1 p-8 animate-fade-in">
+            <div className="max-w-2xl mx-auto space-y-6">
+              <h2 className="text-3xl font-bold">Профиль</h2>
+              <Card className="p-6 glass-effect border-primary/20">
+                <div className="flex items-center gap-6 mb-6">
+                  <div className="w-20 h-20 rounded-full gradient-primary flex items-center justify-center text-3xl font-bold">
+                    Я
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold">Пользователь</h3>
+                    <p className="text-sm text-muted-foreground">user@example.com</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
+                    <span>Чатов создано</span>
+                    <span className="font-semibold">{chatHistory.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
+                    <span>Видео сгенерировано</span>
+                    <span className="font-semibold">0</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 rounded-lg bg-background/50">
+                    <span>Сообщений отправлено</span>
+                    <span className="font-semibold">
+                      {chatHistory.reduce((acc, chat) => acc + chat.messages.length, 0)}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
-};
-
-export default Index;
+}
