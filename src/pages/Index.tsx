@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -7,11 +7,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
 
+interface FileAttachment {
+  name: string;
+  type: string;
+  size: number;
+  url: string;
+}
+
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'ai';
   timestamp: Date;
+  files?: FileAttachment[];
 }
 
 interface Chat {
@@ -46,6 +54,8 @@ export default function Index() {
   const [voiceType, setVoiceType] = useState<'male' | 'female' | 'child'>('female');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [attachedFiles, setAttachedFiles] = useState<FileAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -115,18 +125,34 @@ export default function Index() {
   };
 
   const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() && attachedFiles.length === 0) return;
 
     const newMessage: Message = {
       id: Date.now().toString(),
-      text: inputMessage,
+      text: inputMessage || (attachedFiles.length > 0 ? 'Отправлены файлы' : ''),
       sender: 'user',
       timestamp: new Date(),
+      files: attachedFiles.length > 0 ? [...attachedFiles] : undefined,
     };
+
+    let aiResponseText = 'Привет! Я Kelan, ваш AI-ассистент.';
+    
+    if (attachedFiles.length > 0) {
+      const imageCount = attachedFiles.filter(f => f.type.startsWith('image/')).length;
+      const docCount = attachedFiles.filter(f => !f.type.startsWith('image/')).length;
+      
+      if (imageCount > 0 && docCount > 0) {
+        aiResponseText = `Вижу ${imageCount} изображений и ${docCount} документов. Чем могу помочь с этими файлами?`;
+      } else if (imageCount > 0) {
+        aiResponseText = `Вижу ${imageCount} ${imageCount === 1 ? 'изображение' : 'изображений'}. Что нужно с ними сделать?`;
+      } else {
+        aiResponseText = `Получил ${docCount} ${docCount === 1 ? 'документ' : 'документов'}. Как могу помочь?`;
+      }
+    }
 
     const aiResponse: Message = {
       id: (Date.now() + 1).toString(),
-      text: 'Привет! Я Kelan, ваш AI-ассистент. Как я могу вам помочь?',
+      text: aiResponseText,
       sender: 'ai',
       timestamp: new Date(),
     };
@@ -139,6 +165,7 @@ export default function Index() {
 
     setCurrentChat(updatedChat);
     setInputMessage('');
+    setAttachedFiles([]);
 
     if (!chatHistory.find((c) => c.id === updatedChat.id)) {
       setChatHistory([updatedChat, ...chatHistory]);
@@ -151,6 +178,45 @@ export default function Index() {
 
   const handlePromptClick = (promptText: string) => {
     setInputMessage(promptText);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles: FileAttachment[] = [];
+    
+    Array.from(files).forEach((file) => {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`Файл ${file.name} слишком большой (максимум 10MB)`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          newFiles.push({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            url: event.target.result as string,
+          });
+
+          if (newFiles.length === files.length) {
+            setAttachedFiles([...attachedFiles, ...newFiles]);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles(attachedFiles.filter((_, i) => i !== index));
   };
 
   if (!isAuthenticated) {
@@ -320,18 +386,45 @@ export default function Index() {
                             : 'glass-effect border-primary/20'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-sm flex-1">{message.text}</p>
-                          {message.sender === 'ai' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 shrink-0"
-                              onClick={() => speakText(message.text)}
-                            >
-                              <Icon name="Volume2" size={16} />
-                            </Button>
+                        <div className="space-y-3">
+                          {message.files && message.files.length > 0 && (
+                            <div className="grid grid-cols-2 gap-2">
+                              {message.files.map((file, idx) => (
+                                <div key={idx} className="relative group">
+                                  {file.type.startsWith('image/') ? (
+                                    <img
+                                      src={file.url}
+                                      alt={file.name}
+                                      className="w-full h-32 object-cover rounded-lg"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-32 bg-background/50 rounded-lg flex flex-col items-center justify-center p-3">
+                                      <Icon name="FileText" size={32} className="mb-2" />
+                                      <p className="text-xs text-center truncate w-full">
+                                        {file.name}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {(file.size / 1024).toFixed(1)} KB
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           )}
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm flex-1">{message.text}</p>
+                            {message.sender === 'ai' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 shrink-0"
+                                onClick={() => speakText(message.text)}
+                              >
+                                <Icon name="Volume2" size={16} />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </Card>
                     </div>
@@ -356,6 +449,44 @@ export default function Index() {
                     </Button>
                   </div>
                 )}
+                
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-3 rounded-lg glass-effect border-primary/20">
+                    {attachedFiles.map((file, idx) => (
+                      <div
+                        key={idx}
+                        className="relative group bg-background/50 rounded-lg p-2 flex items-center gap-2"
+                      >
+                        {file.type.startsWith('image/') ? (
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
+                            <Icon name="FileText" size={20} />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs truncate max-w-[150px]">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          onClick={() => removeFile(idx)}
+                        >
+                          <Icon name="X" size={14} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex gap-4">
                   <Input
                     placeholder="Напишите сообщение..."
@@ -367,7 +498,19 @@ export default function Index() {
                   <Button onClick={handleSendMessage} className="gradient-primary hover:opacity-90">
                     <Icon name="Send" size={20} />
                   </Button>
-                  <Button variant="outline" className="border-primary/20">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.txt"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    className="border-primary/20"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
                     <Icon name="Paperclip" size={20} />
                   </Button>
                   <Button variant="outline" className="border-primary/20">
