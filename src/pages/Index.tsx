@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -42,6 +42,22 @@ export default function Index() {
   });
   const [inputMessage, setInputMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<Chat[]>([]);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [voiceType, setVoiceType] = useState<'male' | 'female' | 'child'>('female');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    }
+  }, []);
+
+  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,6 +376,7 @@ export default function Index() {
           <div className="flex-1 p-8 animate-fade-in">
             <div className="max-w-2xl mx-auto space-y-6">
               <h2 className="text-3xl font-bold">Профиль</h2>
+              
               <Card className="p-6 glass-effect border-primary/20">
                 <div className="flex items-center gap-6 mb-6">
                   <div className="w-20 h-20 rounded-full gradient-primary flex items-center justify-center text-3xl font-bold">
@@ -384,6 +401,73 @@ export default function Index() {
                     <span className="font-semibold">
                       {chatHistory.reduce((acc, chat) => acc + chat.messages.length, 0)}
                     </span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 glass-effect border-primary/20">
+                <h3 className="text-xl font-semibold mb-4">Настройки</h3>
+                
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Icon name="Palette" size={18} />
+                      Тема оформления
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        variant={theme === 'light' ? 'default' : 'outline'}
+                        className={theme === 'light' ? 'gradient-primary' : 'border-primary/20'}
+                        onClick={() => handleThemeChange('light')}
+                      >
+                        <Icon name="Sun" className="mr-2" size={18} />
+                        Светлая
+                      </Button>
+                      <Button
+                        variant={theme === 'dark' ? 'default' : 'outline'}
+                        className={theme === 'dark' ? 'gradient-primary' : 'border-primary/20'}
+                        onClick={() => handleThemeChange('dark')}
+                      >
+                        <Icon name="Moon" className="mr-2" size={18} />
+                        Темная
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Icon name="Volume2" size={18} />
+                      Тип голоса ассистента
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Button
+                        variant={voiceType === 'male' ? 'default' : 'outline'}
+                        className={voiceType === 'male' ? 'gradient-secondary' : 'border-primary/20'}
+                        onClick={() => setVoiceType('male')}
+                      >
+                        <Icon name="User" className="mr-2" size={18} />
+                        Мужской
+                      </Button>
+                      <Button
+                        variant={voiceType === 'female' ? 'default' : 'outline'}
+                        className={voiceType === 'female' ? 'gradient-secondary' : 'border-primary/20'}
+                        onClick={() => setVoiceType('female')}
+                      >
+                        <Icon name="UserRound" className="mr-2" size={18} />
+                        Женский
+                      </Button>
+                      <Button
+                        variant={voiceType === 'child' ? 'default' : 'outline'}
+                        className={voiceType === 'child' ? 'gradient-secondary' : 'border-primary/20'}
+                        onClick={() => setVoiceType('child')}
+                      >
+                        <Icon name="Baby" className="mr-2" size={18} />
+                        Детский
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Выбранный голос: {voiceType === 'male' ? 'Мужской' : voiceType === 'female' ? 'Женский' : 'Детский'}
+                    </p>
                   </div>
                 </div>
               </Card>
